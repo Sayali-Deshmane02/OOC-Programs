@@ -1,0 +1,269 @@
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <string>
+#include <cstdio>
+
+using namespace std;
+
+const int MAX_SEATS = 100; // Maximum seats available
+
+class Ticket {
+private:
+    int booking_id;
+    char movie_name[50];
+    char customer_name[50];
+    char movie_date[20];
+    char movie_time[20];
+    int seat_number;
+    double total_price;
+
+public:
+    Ticket() : booking_id(0), seat_number(0), total_price(0.0) {
+        movie_name[0] = '\0';
+        customer_name[0] = '\0';
+        movie_date[0] = '\0';
+        movie_time[0] = '\0';
+    }
+
+    void create_booking(int assignedSeat) {
+        cout << "\n--- New Booking ---" << endl;
+
+        cout << "Enter Booking ID: ";
+        cin >> booking_id;
+        cin.ignore();
+
+        cout << "Enter Movie Name: ";
+        cin.getline(movie_name, 50);
+
+        cout << "Enter Customer Name: ";
+        cin.getline(customer_name, 50);
+
+        cout << "Enter Movie Date (DD/MM/YYYY): ";
+        cin.getline(movie_date, 20);
+
+        cout << "Enter Movie Time (e.g., 7:30 PM): ";
+        cin.getline(movie_time, 20);
+
+        seat_number = assignedSeat;
+        total_price = 15.00; // fixed ticket price
+
+        cout << "\nSeat Number allotted: " << seat_number << endl;
+        cout << "Ticket Price: $" << total_price << endl;
+    }
+
+    void show_booking() const {
+        cout << left << setw(10) << booking_id
+             << setw(20) << movie_name
+             << setw(20) << customer_name
+             << setw(12) << movie_date
+             << setw(10) << movie_time
+             << setw(10) << seat_number
+             << "$" << total_price << endl;
+    }
+
+    int get_booking_id() const {
+        return booking_id;
+    }
+
+    int get_seat_number() const {
+        return seat_number;
+    }
+
+    void write_to_text(ofstream& out) const {
+        out << "ID: " << booking_id
+            << " | Movie: " << movie_name
+            << " | Customer: " << customer_name
+            << " | Date: " << movie_date
+            << " | Time: " << movie_time
+            << " | Seat: " << seat_number
+            << " | Price: $" << total_price << endl;
+    }
+};
+
+
+// ===================== Function Prototypes =====================
+void write_booking();
+void display_all_bookings();
+void delete_booking(int id);
+void export_bookings_to_text();
+int count_total_bookings();
+int get_next_available_seat();
+void display_menu();
+
+
+// ===================== Main Function =====================
+int main() {
+    display_menu();
+    return 0;
+}
+
+
+// ===================== Menu =====================
+void display_menu() {
+    int choice;
+
+    do {
+        cout << "\n==============================================";
+        cout << "\n       CINEMA TICKET BOOKING SYSTEM ";
+        cout << "\n==============================================";
+        cout << "\n1. Book a Ticket";
+        cout << "\n2. View All Bookings";
+        cout << "\n3. Delete a Booking";
+        cout << "\n4. Export Bookings to Text File";
+        cout << "\n5. Exit";
+        cout << "\n\nEnter your choice: ";
+        cin >> choice;
+
+        switch (choice) {
+            case 1: write_booking(); break;
+            case 2: display_all_bookings(); break;
+            case 3:
+                int id;
+                cout << "Enter Booking ID to delete: ";
+                cin >> id;
+                delete_booking(id);
+                break;
+            case 4: export_bookings_to_text(); break;
+            case 5: cout << "Exiting..." << endl; break;
+            default: cout << "Invalid choice!" << endl;
+        }
+
+    } while (choice != 5);
+}
+
+
+// ===================== Count Current Bookings =====================
+int count_total_bookings() {
+    ifstream fin("bookings.dat", ios::binary);
+    if (!fin.is_open()) return 0;
+
+    Ticket temp;
+    int count = 0;
+
+    while (fin.read((char*)&temp, sizeof(temp))) {
+        count++;
+    }
+
+    return count;
+}
+
+
+// ===================== Get Next Available Seat =====================
+int get_next_available_seat() {
+    bool seats[MAX_SEATS + 1] = { false };
+
+    ifstream fin("bookings.dat", ios::binary);
+    Ticket t;
+
+    while (fin.read((char*)&t, sizeof(t))) {
+        seats[t.get_seat_number()] = true;
+    }
+
+    fin.close();
+
+    for (int i = 1; i <= MAX_SEATS; i++) {
+        if (!seats[i]) return i;
+    }
+
+    return -1; // Full
+}
+
+
+// ===================== Write Booking =====================
+void write_booking() {
+    int bookedSeats = count_total_bookings();
+
+    if (bookedSeats >= MAX_SEATS) {
+        cout << "\nAll seats are full! Booking stopped." << endl;
+        return;
+    }
+
+    int nextSeat = get_next_available_seat();
+    Ticket new_ticket;
+    new_ticket.create_booking(nextSeat);
+
+    ofstream fout("bookings.dat", ios::binary | ios::app);
+    fout.write((char*)&new_ticket, sizeof(new_ticket));
+    fout.close();
+
+    cout << "\nBooking Successful!" << endl;
+}
+
+
+// ===================== Display All Bookings =====================
+void display_all_bookings() {
+    ifstream fin("bookings.dat", ios::binary);
+    if (!fin.is_open()) {
+        cout << "No bookings found!" << endl;
+        return;
+    }
+
+    Ticket t;
+
+    cout << "\n-------------------------------------------------------------------------\n";
+    cout << left << setw(10) << "ID"
+         << setw(20) << "Movie"
+         << setw(20) << "Customer"
+         << setw(12) << "Date"
+         << setw(10) << "Time"
+         << setw(10) << "Seat"
+         << "Price\n";
+    cout << "--------------------------------------------------------------------------\n";
+
+    while (fin.read((char*)&t, sizeof(t))) {
+        t.show_booking();
+    }
+
+    fin.close();
+}
+
+
+// ===================== Delete Booking =====================
+void delete_booking(int id) {
+    ifstream fin("bookings.dat", ios::binary);
+    ofstream fout("temp.dat", ios::binary);
+
+    Ticket t;
+    bool found = false;
+
+    while (fin.read((char*)&t, sizeof(t))) {
+        if (t.get_booking_id() != id) {
+            fout.write((char*)&t, sizeof(t));
+        } else {
+            found = true;
+        }
+    }
+
+    fin.close();
+    fout.close();
+
+    remove("bookings.dat");
+    rename("temp.dat", "bookings.dat");
+
+    if (found)
+        cout << "Booking deleted.\n";
+    else
+        cout << "Booking ID not found.\n";
+}
+
+
+// ===================== Export to Text =====================
+void export_bookings_to_text() {
+    ifstream fin("bookings.dat", ios::binary);
+    ofstream fout("bookings_report.txt");
+
+    Ticket t;
+
+    fout << "--- CINEMA TICKET BOOKING REPORT ---\n";
+    fout << "------------------------------------\n";
+
+    while (fin.read((char*)&t, sizeof(t))) {
+        t.write_to_text(fout);
+    }
+
+    fin.close();
+    fout.close();
+
+    cout << "Exported to bookings_report.txt\n";
+}          
